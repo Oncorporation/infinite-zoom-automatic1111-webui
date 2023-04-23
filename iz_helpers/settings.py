@@ -13,7 +13,7 @@ def on_ui_settings():
             "Path where to store your infinite video. Default is Outputs",
             gr.Textbox,
             {"interactive": True},
-            section=section,    
+            section=section,
         ),
     )
 
