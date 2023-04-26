@@ -1,4 +1,4 @@
-import json
+﻿import json
 import gradio as gr
 from .run import create_zoom
 import modules.shared as shared
@@ -11,7 +11,94 @@ from .static_variables import (
     available_samplers,
 )
 from .helpers import validatePromptJson_throws, putPrompts, clearPrompts
+from .ui_components import FormRow, FormColumn, FormGroup, ToolButton, FormHTML
 
+
+def gr_show(visible=True):
+    return {"visible": visible, "__type__": "update"}
+
+# Using constants for these since the variation selector isn't visible.
+# Important that they exactly match script.js for tooltip to work.
+random_symbol = '\U0001f3b2\ufe0f'  # 🎲️
+reuse_symbol = '\u267b\ufe0f'  # ♻️
+paste_symbol = '\u2199\ufe0f'  # ↙
+refresh_symbol = '\U0001f504'  # 🔄
+save_style_symbol = '\U0001f4be'  # 💾
+apply_style_symbol = '\U0001f4cb'  # 📋
+clear_prompt_symbol = '\U0001f5d1\ufe0f'  # 🗑️
+extra_networks_symbol = '\U0001F3B4'  # 🎴
+switch_values_symbol = '\U000021C5' # ⇅
+
+
+
+def create_seed_inputs(target_interface):
+    with FormRow(elem_id=target_interface + '_seed_row', variant="compact"):
+        seed = (gr.Textbox if cmd_opts.use_textbox_seed else gr.Number)(label='Seed', value=-1, elem_id=target_interface + '_seed')
+        seed.style(container=False)
+        random_seed = ToolButton(random_symbol, elem_id=target_interface + '_random_seed')
+        reuse_seed = ToolButton(reuse_symbol, elem_id=target_interface + '_reuse_seed')
+
+        seed_checkbox = gr.Checkbox(label='Extra', elem_id=target_interface + '_subseed_show', value=False)
+
+    # Components to show/hide based on the 'Extra' checkbox
+    seed_extras = []
+
+    with FormRow(visible=False, elem_id=target_interface + '_subseed_row') as seed_extra_row_1:
+        seed_extras.append(seed_extra_row_1)
+        subseed = gr.Number(label='Variation seed', value=-1, elem_id=target_interface + '_subseed')
+        subseed.style(container=False)
+        random_subseed = ToolButton(random_symbol, elem_id=target_interface + '_random_subseed')
+        reuse_subseed = ToolButton(reuse_symbol, elem_id=target_interface + '_reuse_subseed')
+        subseed_strength = gr.Slider(label='Variation strength', value=0.0, minimum=0, maximum=1, step=0.01, elem_id=target_interface + '_subseed_strength')
+
+    with FormRow(visible=False) as seed_extra_row_2:
+        seed_extras.append(seed_extra_row_2)
+        seed_resize_from_w = gr.Slider(minimum=0, maximum=2048, step=8, label="Resize seed from width", value=0, elem_id=target_interface + '_seed_resize_from_w')
+        seed_resize_from_h = gr.Slider(minimum=0, maximum=2048, step=8, label="Resize seed from height", value=0, elem_id=target_interface + '_seed_resize_from_h')
+
+    random_seed.click(fn=lambda: -1, show_progress=False, inputs=[], outputs=[seed])
+    random_subseed.click(fn=lambda: -1, show_progress=False, inputs=[], outputs=[subseed])
+
+    def change_visibility(show):
+        return {comp: gr_show(show) for comp in seed_extras}
+
+    seed_checkbox.change(change_visibility, show_progress=False, inputs=[seed_checkbox], outputs=seed_extras)
+
+    return seed, reuse_seed, subseed, reuse_subseed, subseed_strength, seed_resize_from_h, seed_resize_from_w, seed_checkbox
+
+
+def connect_reuse_seed(seed: gr.Number, reuse_seed: gr.Button, generation_info: gr.Textbox, dummy_component, is_subseed):
+    """ Connects a 'reuse (sub)seed' button's click event so that it copies last used
+        (sub)seed value from generation info the to the seed field. If copying subseed and subseed strength
+        was 0, i.e. no variation seed was used, it copies the normal seed value instead."""
+    def copy_seed(gen_info_string: str, index):
+        res = -1
+
+        try:
+            gen_info = json.loads(gen_info_string)
+            index -= gen_info.get('index_of_first_image', 0)
+
+            if is_subseed and gen_info.get('subseed_strength', 0) > 0:
+                all_subseeds = gen_info.get('all_subseeds', [-1])
+                res = all_subseeds[index if 0 <= index < len(all_subseeds) else 0]
+            else:
+                all_seeds = gen_info.get('all_seeds', [-1])
+                res = all_seeds[index if 0 <= index < len(all_seeds) else 0]
+
+        except json.decoder.JSONDecodeError as e:
+            if gen_info_string != '':
+                print("Error parsing JSON generation info:", file=sys.stderr)
+                print(gen_info_string, file=sys.stderr)
+
+        return [res, gr_show(False)]
+
+    reuse_seed.click(
+        fn=copy_seed,
+        _js="(x, y) => [x, selected_gallery_index()]",
+        show_progress=False,
+        inputs=[generation_info, dummy_component],
+        outputs=[seed, dummy_component]
+    )
 
 def on_ui_tabs():
     with gr.Blocks(analytics_enabled=False) as infinite_zoom_interface:
