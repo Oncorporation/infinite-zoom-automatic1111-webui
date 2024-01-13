@@ -2,7 +2,7 @@ import json
 from msilib.schema import File
 import gradio as gr
 import modules.shared as shared
-from webui import wrap_gradio_gpu_call
+from modules.call_queue import wrap_gradio_gpu_call
 from modules.ui import create_output_panel
 from .run_interface import createZoom
 
