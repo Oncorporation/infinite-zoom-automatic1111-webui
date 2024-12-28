@@ -22,12 +22,24 @@ from .image import (
     apply_alpha_mask, 
     draw_gradient_ellipse, 
     resize_and_crop_image, 
-    crop_fethear_ellipse, 
+    crop_feather_ellipse, 
     crop_inner_image, 
     apply_lut, 
     read_lut)
 from .video import write_video, add_audio_to_video, ContinuousVideoWriter
 from .InfZoomConfig import InfZoomConfig
+
+progress = {
+    "current_step": 0,
+    "total_steps": 0,
+    "percentage": 0,
+}
+
+def update_progress(current_step, total_steps):
+    global progress
+    progress["current_step"] = current_step
+    progress["total_steps"] = total_steps
+    progress["percentage"] = (current_step / total_steps) * 100
 
 class InfZoomer:
     def __init__(self, config: InfZoomConfig) -> None:
@@ -263,8 +275,9 @@ class InfZoomer:
         new_height=masked_image.height
 
         outpaint_steps=self.C.num_outpainting_steps
-        for i in range(outpaint_steps):
+        for i in range(outpaint_steps):            
             print (f"Outpaint step: {str(i + 1)}/{str(outpaint_steps)} Seed: {str(self.current_seed)}")
+            update_progress(i + 1, outpaint_steps)
             current_image = self.main_frames[-1]
             alpha_mask = self.getAlphaMask(*current_image.size, i + 1)
 
@@ -384,10 +397,9 @@ class InfZoomer:
 
         self.fixMaskSizes()
 
-        for i in range(outpaint_steps):
-                
+        for i in range(outpaint_steps):                
             print (f"Outpaint step: {str(i + 1)} / {str(outpaint_steps)} Seed: {str(self.current_seed)} \r")
-        
+            update_progress(i + 1, outpaint_steps)
             current_image = self.main_frames[-1]
 
             reduced_image = shrink_and_paste_on_blank(

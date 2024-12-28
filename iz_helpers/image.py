@@ -589,7 +589,7 @@ def draw_gradient_ellipse(width=512, height=512, white_amount=1.0, rotation = 0.
     # Return the result image
     return image
 
-def crop_fethear_ellipse(image: Image.Image, feather_margin: int = 30, width_offset: int = 0, height_offset: int = 0) -> Image.Image:
+def crop_feather_ellipse(image: Image.Image, feather_margin: int = 30, width_offset: int = 0, height_offset: int = 0) -> Image.Image:
     """
     Crop an elliptical region from the input image with a feathered edge.
 
